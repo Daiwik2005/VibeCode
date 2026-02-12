@@ -55,7 +55,7 @@ VibeCode/
 
 # ⚙️ Full Dependency Installation & Setup Instructions
 
-```in  main.py we should update the root1 and root2 path```
+# In main.py we should update the root1 and root2 path
 
 ## 2️⃣ Install Python 
 

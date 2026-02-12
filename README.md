@@ -55,7 +55,7 @@ VibeCode/
 
 # ⚙️ Full Dependency Installation & Setup Instructions
 
-- in  main.py we should have to update the root1 and root2 path
+```in  main.py we should update the root1 and root2 path```
 
 ## 2️⃣ Install Python 
 
@@ -131,7 +131,7 @@ static/index.html
 Add your demo links below:
 
 - 🔹 MVP Overview Video: [https://your-demo-link.com](https://drive.google.com/file/d/1d_namX-q9uP4a5Kfi_gZJHFTLJn2tbX4/view?usp=sharing)
--for demonstation purpose root1 and root2  folder have been taken
+-for demonstation purpose root1 and root2 folders have been taken
 
 
 

@@ -17,7 +17,7 @@ from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
 # ── CONFIG ────────────────────────────────────────────────────────────────────
-ROOT_DIR = "C:\\Bhanu\\vibecoding\\SEFS_Root"          # ← CHANGE THIS to your directory
+ROOT_DIR = "C:\\Users\\Daiwi\\OneDrive\\Documents\\bands\\SEFS_-BANDS-\\rootEFS_Root"          # ← CHANGE THIS to your directory
 PORT     = 5000
 # ─────────────────────────────────────────────────────────────────────────────
 

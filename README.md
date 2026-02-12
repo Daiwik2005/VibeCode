@@ -104,6 +104,11 @@ https://ollama.com/download
 
 In main.py we should update the root1 and root2 path
 ```bash
+ROOT_IN  = Path(r"C:\Users\Daiwi\OneDrive\Documents\bands\SEFS_-BANDS-\root1")
+ROOT_OUT = Path(r"C:\Users\Daiwi\OneDrive\Documents\bands\SEFS_-BANDS-\root2")
+```
+
+```bash
 python main.py
 ```
 

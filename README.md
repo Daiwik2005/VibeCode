@@ -1,0 +1,142 @@
+
+## 📌 Project Title
+**Intelligent File Monitoring & Semantic Content Orchestration System**
+
+---
+
+## 🧠 Description
+
+VibeCode is a Python-based automation system that:
+
+- 📂 Monitors file system changes in real-time
+- 🧠 Processes file content using semantic intelligence
+- 📁 Automatically organizes files into structured folders
+- 🌐 Provides a simple frontend interface using static `index.html`
+
+The system follows a modular backend architecture where `main.py` acts as the controller and coordinates file watching, semantic processing, and folder orchestration.
+
+It is designed to be scalable, clean, and easy to extend.
+
+---
+
+## 🏗️ Architecture Diagram 
+
+
+![Architecture Diagram](architecture.png)
+
+---
+
+## 🛠️ Tech Stack
+
+- Backend: Python 3.x
+- Frontend: HTML (Static)
+- Architecture: Modular Python Design
+- File Monitoring: Watcher-based system
+- Dependency Management: pip
+
+---
+
+## 📁 Project Structure
+
+```
+VibeCode/
+│── main.py
+│── content_processor.py
+│── folder_orchestrator.py
+│── file_watcher.py
+│── semantic_intelligence.py
+│── req.txt
+│
+├── static/
+│    └── index.html
+```
+
+---
+
+# ⚙️ Full Dependency Installation & Setup Instructions
+
+]
+
+## 2️⃣ Install Python 
+
+Check version:
+
+```bash
+python --version
+```
+
+Required:
+```
+Python 3.8 or higher
+```
+
+Download from:
+https://www.python.org/downloads/
+
+---
+
+
+
+## 5️⃣ Install All Project Dependencies
+
+Install from req.txt:
+
+```bash
+pip install -r req.txt
+```
+
+If needed manually (example):
+
+```bash
+pip install watchdog
+pip install flask
+pip install requests
+```
+
+
+
+---
+
+# ▶️ Running the Project
+
+```bash
+python main.py
+```
+
+---
+
+# 🌐 Accessing Frontend
+
+If backend serves static content:
+
+```
+http://localhost:<PORT>
+```
+
+Or open manually:
+
+```
+static/index.html
+```
+
+---
+
+# 🎥 Demo Section (MVP)
+
+Add your demo links below:
+
+- 🔹 MVP Overview Video: https://your-demo-link.com
+
+
+
+# 📸 Screenshots 
+
+
+```markdown
+![Home Page](Home_page.png)
+![Processing Output](output.png)
+```
+
+
+
+

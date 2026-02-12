@@ -132,10 +132,10 @@ Add your demo links below:
 # 📸 Screenshots 
 
 
-```markdown
+
 ![Home Page](Home_page.png)
 ![Processing Output](output.png)
-```
+
 
 
 

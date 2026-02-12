@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SEFS – Semantic File System</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600&display=swap" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.development.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.development.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body, #root { width: 100%; height: 100%; overflow: hidden; background: #0b0e14; }
+
+  @keyframes popIn {
+    0%   { opacity: 0; transform: scale(0.2); }
+    65%  { opacity: 1; transform: scale(1.12); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+  @keyframes collapseOut {
+    0%   { opacity: 1; transform: scale(1); }
+    100% { opacity: 0; transform: scale(0.3); }
+  }
+  @keyframes pulseGlow {
+    0%,100% { opacity: 1; }
+    50%      { opacity: 0.35; }
+  }
+  @keyframes edgeDash {
+    to { stroke-dashoffset: -20; }
+  }
+  @keyframes toastIn {
+    from { opacity: 0; transform: translateX(-8px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+  @keyframes scanline {
+    0%   { top: 40px; }
+    100% { top: 100vh; }
+  }
+  @keyframes chevronSpin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(-90deg); }
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback, useMemo, memo } = React;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SVG ICONS
+// ─────────────────────────────────────────────────────────────────────────────
+function FolderOpenIcon({ color, size=28 }) {
+  const s = size / 28;
+  return (
+    <g transform={`scale(${s})`}>
+      <path d="M-13,-8 L-13,10 Q-13,12 -11,12 L11,12 Q13,12 13,10 L13,-3 Q13,-5 11,-5 L0,-5 L-3,-8 Z"
+        fill={color} fillOpacity={0.18} stroke={color} strokeWidth={1.3} strokeLinejoin="round"/>
+      <path d="M-13,1 L-10,-7 L10,-7 L13,1 L13,10 Q13,12 11,12 L-11,12 Q-13,12 -13,10 Z"
+        fill={color} fillOpacity={0.32} stroke={color} strokeWidth={1.3} strokeLinejoin="round"/>
+      <line x1="-6" y1="2" x2="6" y2="2" stroke={color} strokeWidth={1} strokeOpacity={0.5}/>
+      <line x1="-8" y1="6" x2="8" y2="6" stroke={color} strokeWidth={1} strokeOpacity={0.3}/>
+    </g>
+  );
+}
+function FolderClosedIcon({ color, size=28 }) {
+  const s = size / 28;
+  return (
+    <g transform={`scale(${s})`}>
+      <path d="M-13,-8 L-13,10 Q-13,12 -11,12 L11,12 Q13,12 13,10 L13,-3 Q13,-5 11,-5 L0,-5 L-3,-8 Z"
+        fill={color} fillOpacity={0.18} stroke={color} strokeWidth={1.3} strokeLinejoin="round"/>
+      <path d="M-13,-3 L13,-3 L13,10 Q13,12 11,12 L-11,12 Q-13,12 -13,10 Z"
+        fill={color} fillOpacity={0.28} stroke={color} strokeWidth={1.3} strokeLinejoin="round"/>
+    </g>
+  );
+}
+function FolderIcon({ color, size=26, open=true }) {
+  const s = size / 26;
+  if (open) return (
+    <g transform={`scale(${s})`}>
+      <path d="M-12,-8 L-12,9 Q-12,11 -10,11 L10,11 Q12,11 12,9 L12,-4 Q12,-6 10,-6 L0,-6 L-3,-8 Z"
+        fill={color} fillOpacity={0.18} stroke={color} strokeWidth={1.3} strokeLinejoin="round"/>
+      <path d="M-12,0 L-9,-7 L9,-7 L12,0 L12,9 Q12,11 10,11 L-10,11 Q-12,11 -12,9 Z"
+        fill={color} fillOpacity={0.32} stroke={color} strokeWidth={1.3} strokeLinejoin="round"/>
+    </g>
+  );
+  return (
+    <g transform={`scale(${s})`}>
+      <path d="M-12,-8 L-12,9 Q-12,11 -10,11 L10,11 Q12,11 12,9 L12,-4 Q12,-6 10,-6 L0,-6 L-3,-8 Z"
+        fill={color} fillOpacity={0.18} stroke={color} strokeWidth={1.3} strokeLinejoin="round"/>
+      <path d="M-12,-4 L12,-4 L12,9 Q12,11 10,11 L-10,11 Q-12,11 -12,9 Z"
+        fill={color} fillOpacity={0.28} stroke={color} strokeWidth={1.3} strokeLinejoin="round"/>
+    </g>
+  );
+}
+function FileIcon({ color, label, size=22 }) {
+  const s = size / 22;
+  return (
+    <g transform={`scale(${s})`}>
+      <path d="M-8,-12 L5,-12 L10,-7 L10,12 Q10,13 9,13 L-9,13 Q-10,13 -10,12 L-10,-11 Q-10,-12 -9,-12 Z"
+        fill={color} fillOpacity={0.13} stroke={color} strokeWidth={1.2} strokeLinejoin="round"/>
+      <path d="M5,-12 L5,-7 L10,-7" fill="none" stroke={color} strokeWidth={1.2}/>
+      {label ? (
+        <text y="5" textAnchor="middle" fontSize="6.5" fontFamily="'JetBrains Mono',monospace"
+          fill={color} fontWeight="700" fillOpacity={0.9}>{label}</text>
+      ) : (
+        <>
+          <line x1="-6" y1="-2" x2="6"  y2="-2" stroke={color} strokeWidth={0.9} strokeOpacity={0.55}/>
+          <line x1="-6" y1="2"  x2="6"  y2="2"  stroke={color} strokeWidth={0.9} strokeOpacity={0.4}/>
+          <line x1="-6" y1="6"  x2="3"  y2="6"  stroke={color} strokeWidth={0.9} strokeOpacity={0.3}/>
+        </>
+      )}
+    </g>
+  );
+}
+
+// Chevron toggle indicator
+function Chevron({ color, open }) {
+  return (
+    <g transform={`rotate(${open ? 0 : -90})`}
+      style={{ transition: "transform 0.3s cubic-bezier(.34,1.56,.64,1)" }}>
+      <path d="M-4,-2 L0,3 L4,-2" fill="none" stroke={color} strokeWidth={1.4}
+        strokeLinecap="round" strokeLinejoin="round" strokeOpacity={0.7}/>
+    </g>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// COLORS & STYLES
+// ─────────────────────────────────────────────────────────────────────────────
+const EXT_COLORS = {
+  py:"#4EC9B0", js:"#F7DF1E", jsx:"#61DAFB", ts:"#3178C6",
+  tsx:"#61DAFB", md:"#89D185", json:"#CE9178", html:"#E34C26",
+  css:"#569CD6", yml:"#FF9966", yaml:"#FF9966", sh:"#A8FF78",
+  txt:"#9CDCFE", csv:"#9CDCFE", sql:"#FFAA44", rs:"#CE422B",
+  go:"#00ADD8",  rb:"#CC342D", java:"#B07219", toml:"#9C6B4E",
+  env:"#EEE8AA", vue:"#41B883", svelte:"#FF3E00", dart:"#0175C2",
+};
+const EXT_LABELS = {
+  py:"py", js:"js", jsx:"jsx", ts:"ts", tsx:"tsx",
+  md:"md", json:"{}", html:"htm", css:"css", yml:"yml", yaml:"yml",
+  sh:"sh", sql:"sql", rs:"rs", go:"go", rb:"rb", java:"java",
+  vue:"vue", svelte:"svl", dart:"dart",
+};
+
+function getNodeStyle(node, collapsed=false) {
+  if (node.type === "root")   return { color:"#00FFD1", bold:true,  fs:11,
+    Icon: ()=><FolderOpenIcon color="#00FFD1" size={32}/> };
+  if (node.type === "domain") return { color:"#FFD700", bold:true,  fs:10,
+    Icon: ()=> collapsed ? <FolderClosedIcon color="#FFD700" size={28}/> : <FolderOpenIcon color="#FFD700" size={28}/> };
+  if (node.type === "folder") return { color:"#7EC8E3", bold:false, fs:9,
+    Icon: ()=><FolderIcon color="#7EC8E3" size={24} open={!collapsed}/> };
+  const ext   = node.ext || "";
+  const color = EXT_COLORS[ext] || "#C8B8FF";
+  const lbl   = EXT_LABELS[ext] || null;
+  return { color, bold:false, fs:9, Icon: ()=><FileIcon color={color} label={lbl} size={20}/> };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LAYOUT  —  top-down, properly spaced
+// ─────────────────────────────────────────────────────────────────────────────
+// Each node needs enough horizontal room for its label (≈ 8px per char at 9px mono)
+// plus comfortable padding between siblings
+const NODE_W   = 90;   // minimum slot width per leaf node
+const H_GAP    = 100;  // vertical gap between levels
+
+function getLabelWidth(name) {
+  const chars = Math.min(name.length, 16);
+  return Math.max(NODE_W, chars * 7.5 + 24);
+}
+
+// Returns the total width needed for a subtree, respecting collapsed state
+function subtreeWidth(node, collapsed) {
+  const ch = node.children || [];
+  if (!ch.length || collapsed.has(node.id)) return getLabelWidth(node.name);
+  const childWidths = ch.map(c => subtreeWidth(c, collapsed));
+  const total = childWidths.reduce((a, b) => a + b, 0);
+  return Math.max(getLabelWidth(node.name), total);
+}
+
+function placeTree(node, x, y, w, collapsed, out) {
+  out[node.id] = { x, y };
+  const ch = node.children || [];
+  if (!ch.length || collapsed.has(node.id)) return;
+  const widths = ch.map(c => subtreeWidth(c, collapsed));
+  const total  = widths.reduce((a, b) => a + b, 0);
+  let cx = x - total / 2;
+  ch.forEach((c, i) => {
+    const cw = widths[i];
+    placeTree(c, cx + cw / 2, y + H_GAP, cw, collapsed, out);
+    cx += cw;
+  });
+}
+
+function computeLayout(tree, collapsed) {
+  const pos = {};
+  const rootW = subtreeWidth(tree, collapsed);
+  placeTree(tree, 0, 0, rootW, collapsed, pos);
+  const xs = Object.values(pos).map(p => p.x);
+  const ys = Object.values(pos).map(p => p.y);
+  const minX = Math.min(...xs), minY = Math.min(...ys);
+  Object.keys(pos).forEach(id => {
+    pos[id] = { x: pos[id].x - minX + 100, y: pos[id].y - minY + 80 };
+  });
+  return pos;
+}
+
+// Only include visible nodes (not under a collapsed ancestor)
+function visibleNodes(tree, collapsed) {
+  const out = [];
+  function walk(n) {
+    out.push(n);
+    if (!collapsed.has(n.id)) (n.children || []).forEach(walk);
+  }
+  walk(tree);
+  return out;
+}
+
+function visibleEdges(tree, pos, collapsed) {
+  const out = [];
+  function walk(n) {
+    if (collapsed.has(n.id)) return;
+    (n.children || []).forEach(c => {
+      const f = pos[n.id], t = pos[c.id];
+      if (f && t) out.push({ id:`${n.id}→${c.id}`, fx:f.x,fy:f.y, tx:t.x,ty:t.y, type:c.type, ext:c.ext });
+      walk(c);
+    });
+  }
+  walk(tree);
+  return out;
+}
+
+function flatNodes(tree) {
+  const out = [];
+  function w(n) { out.push(n); (n.children||[]).forEach(w); }
+  w(tree); return out;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SPRING HOOK
+// ─────────────────────────────────────────────────────────────────────────────
+function useSpring(tx, ty) {
+  const [p, setP] = useState({ x:tx, y:ty });
+  const s = useRef({ x:tx, vx:0, y:ty, vy:0 });
+  const r = useRef(null);
+  const t = useRef(performance.now());
+
+  useEffect(() => {
+    const K=190, D=22;
+    const tick = (now) => {
+      const dt = Math.min((now - t.current) / 1000, 0.05);
+      t.current = now;
+      const sp = (pos,vel,tgt) => {
+        const f = K*(tgt-pos) - D*vel;
+        return { p: pos + vel*dt + (f*dt*dt), v: vel + f*dt };
+      };
+      const rx = sp(s.current.x, s.current.vx, tx);
+      const ry = sp(s.current.y, s.current.vy, ty);
+      s.current = { x:rx.p, vx:rx.v, y:ry.p, vy:ry.v };
+      setP({ x:rx.p, y:ry.p });
+      const done = Math.abs(tx-rx.p)<0.25 && Math.abs(rx.v)<0.25
+                && Math.abs(ty-ry.p)<0.25 && Math.abs(ry.v)<0.25;
+      r.current = done ? null : requestAnimationFrame(tick);
+      if (done) setP({ x:tx, y:ty });
+    };
+    cancelAnimationFrame(r.current);
+    r.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(r.current);
+  }, [tx, ty]);
+
+  return p;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// EDGE
+// ─────────────────────────────────────────────────────────────────────────────
+const Edge = memo(({ fx,fy,tx,ty,type,ext,isNew }) => {
+  const ns = getNodeStyle({ type, ext });
+  const midY = fy + (ty - fy) * 0.5;
+  const d = `M${fx},${fy+20} C${fx},${midY} ${tx},${midY} ${tx},${ty-20}`;
+  return (
+    <path d={d} fill="none"
+      stroke={ns.color} strokeWidth={1}
+      strokeOpacity={isNew ? 0.6 : 0.2}
+      strokeDasharray={isNew ? "5 3" : "none"}
+      style={isNew ? { animation:"edgeDash 0.5s linear 4" } : {}}
+    />
+  );
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// NODE
+// ─────────────────────────────────────────────────────────────────────────────
+const Node = memo(({ node, tx, ty, isNew, isChanged, isCollapsed, selected, onSelect, onToggle }) => {
+  const style = getNodeStyle(node, isCollapsed);
+  const { x, y } = useSpring(tx, ty);
+  const [born,  setBorn]  = useState(!isNew);
+  const [pulse, setPulse] = useState(false);
+  const [dying, setDying] = useState(false);
+
+  useEffect(() => { if (isNew) requestAnimationFrame(() => setBorn(true)); }, [isNew]);
+  useEffect(() => {
+    if (isChanged) { setPulse(true); setTimeout(() => setPulse(false), 1500); }
+  }, [isChanged]);
+
+  const isSelected  = selected === node.id;
+  const isFolder    = node.type !== "file";
+  const hasChildren = (node.children || []).length > 0;
+  const label       = node.name.length > 16 ? node.name.slice(0,15) + "…" : node.name;
+
+  const handleClick = (e) => {
+    e.stopPropagation();
+    if (isFolder && hasChildren) {
+      onToggle(node.id);
+    } else {
+      onSelect(isSelected ? null : node.id);
+    }
+  };
+
+  const handleRightClick = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onSelect(isSelected ? null : node.id);
+  };
+
+  return (
+    <g
+      transform={`translate(${x},${y})`}
+      onClick={handleClick}
+      onContextMenu={handleRightClick}
+      style={{
+        cursor: isFolder && hasChildren ? "pointer" : "default",
+        opacity: isNew && !born ? 0 : 1,
+        animation: isNew && !born ? "popIn 0.45s cubic-bezier(.34,1.56,.64,1) forwards" : "none",
+      }}
+    >
+      {/* Selection ring — only via right-click for folders */}
+      {isSelected && (
+        <ellipse rx={26} ry={24} fill="none"
+          stroke={style.color} strokeWidth={1.5}
+          strokeDasharray="5 3" strokeOpacity={0.7}
+          style={{ animation:"pulseGlow 1.4s ease-in-out infinite" }}
+        />
+      )}
+
+      {/* Glow blob */}
+      <ellipse rx={20} ry={18}
+        fill={style.color}
+        fillOpacity={pulse ? 0.2 : isCollapsed ? 0.1 : 0.06}
+        style={pulse ? { animation:"pulseGlow 0.5s ease-in-out 3" } : {}}
+      />
+
+      {/* Icon */}
+      <style>{`
+        .icon-${node.id.replace(/[^a-zA-Z0-9]/g,"_")} {
+          transition: transform 0.3s cubic-bezier(.34,1.56,.64,1);
+          transform: scale(${isCollapsed ? 0.9 : 1});
+        }
+      `}</style>
+      <g className={`icon-${node.id.replace(/[^a-zA-Z0-9]/g,"_")}`}>
+        <style>{``}</style>
+        {style.Icon()}
+      </g>
+
+      {/* Chevron for collapsible folders */}
+      {isFolder && hasChildren && (
+        <g transform="translate(0, 26)">
+          <Chevron color={style.color} open={!isCollapsed} />
+        </g>
+      )}
+
+      {/* Collapsed count badge */}
+      {isCollapsed && hasChildren && (
+        <g transform="translate(18,-18)">
+          <circle r={8} fill={style.color} fillOpacity={0.9}/>
+          <text textAnchor="middle" y={4} fill="#0b0e14" fontSize={7}
+            fontFamily="'JetBrains Mono',monospace" fontWeight="700"
+            style={{ userSelect:"none" }}>
+            {(node.children||[]).length}
+          </text>
+        </g>
+      )}
+
+      {/* Label — with background pill to prevent overlap */}
+      <g transform="translate(0, 38)">
+        <rect
+          x={-(label.length * 3.8 + 6)}
+          y={-8} rx={3}
+          width={label.length * 7.6 + 12}
+          height={13}
+          fill="#0b0e14"
+          fillOpacity={0.75}
+        />
+        <text
+          textAnchor="middle" y={3}
+          fill={style.color}
+          fontSize={style.fs}
+          fontFamily="'JetBrains Mono',monospace"
+          fontWeight={style.bold ? "600" : "400"}
+          fillOpacity={0.88}
+          style={{ userSelect:"none" }}
+        >
+          {label}
+        </text>
+      </g>
+
+      {/* NEW badge */}
+      {isNew && born && (
+        <g transform="translate(18,-20)">
+          <rect x={-9} y={-5} width={18} height={10} rx={3} fill={style.color} fillOpacity={0.95}/>
+          <text textAnchor="middle" y={3} fill="#0b0e14" fontSize={5.5}
+            fontFamily="'JetBrains Mono',monospace" fontWeight="700"
+            style={{ userSelect:"none" }}>NEW</text>
+        </g>
+      )}
+    </g>
+  );
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TOASTS
+// ─────────────────────────────────────────────────────────────────────────────
+const TCOLORS = { created:"#00FFD1", deleted:"#FF6B6B", modified:"#FFD700", moved:"#7EC8E3", reorganized:"#C8B8FF" };
+const TICONS  = { created:"＋", deleted:"✕", modified:"✎", moved:"↗", reorganized:"⟳" };
+
+function Toasts({ items }) {
+  return (
+    <div style={{ position:"absolute", bottom:20, left:20, display:"flex", flexDirection:"column-reverse", gap:5, pointerEvents:"none" }}>
+      {items.slice(-5).map(t => (
+        <div key={t.id} style={{
+          display:"flex", alignItems:"center", gap:8,
+          background:"rgba(11,14,20,0.93)",
+          border:`1px solid ${TCOLORS[t.type]||"#333"}30`,
+          borderLeft:`2px solid ${TCOLORS[t.type]||"#555"}`,
+          borderRadius:5, padding:"5px 12px",
+          fontFamily:"'JetBrains Mono',monospace", fontSize:10,
+          color:TCOLORS[t.type]||"#aaa",
+          backdropFilter:"blur(10px)",
+          animation:"toastIn 0.22s ease-out",
+          boxShadow:`0 2px 16px ${TCOLORS[t.type]||"#000"}15`,
+        }}>
+          <span style={{ fontSize:12 }}>{TICONS[t.type]||"·"}</span>
+          <span style={{ textTransform:"uppercase", letterSpacing:1 }}>{t.type}</span>
+          <span style={{ color:"#333" }}>·</span>
+          <span style={{ color:"#444" }}>{new Date(t.ts*1000).toLocaleTimeString()}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DETAIL PANEL
+// ─────────────────────────────────────────────────────────────────────────────
+function Detail({ node, onClose }) {
+  if (!node) return null;
+  const { color, Icon } = getNodeStyle(node);
+  const kids = (node.children || []).length;
+  return (
+    <div style={{
+      position:"absolute", right:16, top:52,
+      background:"rgba(11,14,20,0.97)",
+      border:`1px solid ${color}25`, borderLeft:`3px solid ${color}`,
+      borderRadius:10, padding:"18px 20px", width:230,
+      backdropFilter:"blur(20px)",
+      boxShadow:`0 8px 40px ${color}15`,
+      fontFamily:"'JetBrains Mono',monospace",
+      animation:"toastIn 0.22s ease-out",
+    }}>
+      <div style={{ display:"flex", justifyContent:"space-between", marginBottom:14 }}>
+        <div>
+          <div style={{ color, fontSize:8, letterSpacing:3, textTransform:"uppercase", marginBottom:5, opacity:0.65 }}>
+            {node.type}{node.ext ? ` · .${node.ext}` : ""}
+          </div>
+          <div style={{ color:"#e8e8e8", fontSize:13, fontWeight:600, wordBreak:"break-all", lineHeight:1.4 }}>
+            {node.name}
+          </div>
+        </div>
+        <button onClick={onClose} style={{ background:"none", border:"none", color:"#444", cursor:"pointer", fontSize:18, lineHeight:1, paddingTop:2 }}>×</button>
+      </div>
+      <div style={{ textAlign:"center", margin:"8px 0 14px" }}>
+        <svg width={44} height={44} viewBox="-22 -22 44 44"><Icon/></svg>
+      </div>
+      <div style={{ borderTop:`1px solid ${color}12`, paddingTop:12, display:"flex", flexDirection:"column", gap:9 }}>
+        {kids > 0 && <R label="contents" value={`${kids} item${kids!==1?"s":""}`}/>}
+        {node.modified && <R label="modified" value={new Date(node.modified*1000).toLocaleString()}/>}
+        <R label="path" value={node.path?.replace(/\\/g,"/").split("/").slice(-3).join("/")||"—"} mono/>
+      </div>
+    </div>
+  );
+}
+function R({ label, value, mono }) {
+  return (
+    <div style={{ display:"flex", flexDirection:"column", gap:2 }}>
+      <span style={{ color:"#2e2e2e", fontSize:7.5, letterSpacing:2, textTransform:"uppercase" }}>{label}</span>
+      <span style={{ color:"#666", fontSize: mono ? 8.5 : 10, wordBreak:"break-all", lineHeight:1.4 }}>{value}</span>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TOP BAR
+// ─────────────────────────────────────────────────────────────────────────────
+function TopBar({ connected, rootDir, nodeCount, visibleCount, eventCount }) {
+  return (
+    <div style={{
+      position:"absolute", top:0, left:0, right:0, height:40,
+      background:"rgba(11,14,20,0.97)",
+      borderBottom:"1px solid #ffffff09",
+      display:"flex", alignItems:"center", gap:18, padding:"0 20px",
+      fontFamily:"'JetBrains Mono',monospace",
+      backdropFilter:"blur(12px)", zIndex:10,
+    }}>
+      <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+        <div style={{
+          width:7, height:7, borderRadius:"50%",
+          background:connected?"#00FFD1":"#FF6B6B",
+          boxShadow:connected?"0 0 7px #00FFD1":"0 0 7px #FF6B6B",
+        }}/>
+        <span style={{ color:"#00FFD1", fontSize:12, fontWeight:600, letterSpacing:3 }}>SEFS</span>
+      </div>
+      <div style={{ width:1, height:16, background:"#ffffff0d" }}/>
+      <span style={{ color:"#ffffff", fontSize:9, maxWidth:340, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+        {rootDir}
+      </span>
+      <div style={{ flex:1 }}/>
+      <span style={{ color:"#252525", fontSize:9, letterSpacing:1 }}>{visibleCount}/{nodeCount} nodes</span>
+      <span style={{ color:"#1e1e1e", fontSize:9, letterSpacing:1 }}>{eventCount} events</span>
+      <div style={{ width:1, height:16, background:"#ffffff08" }}/>
+      <span style={{ color:"#1a1a1a", fontSize:7.5, letterSpacing:1.5, textTransform:"uppercase" }}>
+        click folder = collapse · right-click = inspect · scroll zoom · drag pan
+      </span>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LEGEND
+// ─────────────────────────────────────────────────────────────────────────────
+function Legend() {
+  return (
+    <div style={{ position:"absolute", bottom:20, right:16, display:"flex", flexDirection:"column", gap:9, pointerEvents:"none", fontFamily:"'JetBrains Mono',monospace" }}>
+      {[
+        { label:"root",          node:<FolderOpenIcon   color="#00FFD1" size={18}/>, c:"#00FFD1" },
+        { label:"domain",        node:<FolderOpenIcon   color="#FFD700" size={18}/>, c:"#FFD700" },
+        { label:"folder",        node:<FolderIcon       color="#7EC8E3" size={16}/>, c:"#7EC8E3" },
+        { label:"file",          node:<FileIcon         color="#C8B8FF" size={14}/>, c:"#C8B8FF" },
+      ].map(({ label,node,c }) => (
+        <div key={label} style={{ display:"flex", alignItems:"center", gap:8 }}>
+          <svg width={22} height={22} viewBox="-11 -11 22 22">{node}</svg>
+          <span style={{ color:"#ffffff", fontSize:7.5, letterSpacing:1.5, textTransform:"uppercase" }}>{label}</span>
+        </div>
+      ))}
+      <div style={{ marginTop:4, borderTop:"1px solid #ffffff08", paddingTop:8 }}>
+        <span style={{ color:"#ffffff", fontSize:7.5, letterSpacing:1 }}>click folder to collapse</span>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// APP
+// ─────────────────────────────────────────────────────────────────────────────
+function App() {
+  const [tree,      setTree]     = useState(null);
+  const [pos,       setPos]      = useState({});
+  const [collapsed, setCollapsed]= useState(new Set());
+  const [selected,  setSelected] = useState(null);
+  const [detailNode,setDetail]   = useState(null);
+  const [toasts,    setToasts]   = useState([]);
+  const [connected, setConn]     = useState(false);
+  const [rootDir,   setRoot]     = useState("");
+  const [newIds,    setNew]      = useState(new Set());
+  const [changedIds,setChanged]  = useState(new Set());
+  const prevRef  = useRef(null);
+  const evCount  = useRef(0);
+  const [evDisp, setEvDisp] = useState(0);
+
+  const [pan,  setPan]  = useState({ x:0, y:0 });
+  const [zoom, setZoom] = useState(1);
+  const drag   = useRef(false);
+  const ds     = useRef(null);
+  const [W, setW] = useState(window.innerWidth);
+  const [H, setH] = useState(window.innerHeight);
+
+  useEffect(() => {
+    const h = () => { setW(window.innerWidth); setH(window.innerHeight); };
+    window.addEventListener("resize", h);
+    return () => window.removeEventListener("resize", h);
+  }, []);
+
+  // Toggle collapse for a node
+  const toggleCollapse = useCallback((id) => {
+    setCollapsed(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  // Diff helper
+  function diff(a, b) {
+    const om={}, nm={};
+    flatNodes(a || { id:"__", children:[] }).forEach(n => om[n.id]=n);
+    flatNodes(b).forEach(n => nm[n.id]=n);
+    return {
+      newIds:     new Set(Object.keys(nm).filter(id => !om[id])),
+      changedIds: new Set(Object.keys(nm).filter(id => om[id] && om[id].modified !== nm[id].modified)),
+    };
+  }
+
+  const applyUpdate = useCallback((msg) => {
+    const { event, tree:t } = msg;
+    setRoot(t.name);
+    const { newIds:ni, changedIds:ci } = diff(prevRef.current, t);
+    setNew(ni); setChanged(ci);
+    setTimeout(() => { setNew(new Set()); setChanged(new Set()); }, 2000);
+    setPos(computeLayout(t, collapsed));
+    setTree(t);
+    prevRef.current = t;
+    if (event !== "snapshot") {
+      evCount.current++; setEvDisp(evCount.current);
+      setToasts(p => [...p.slice(-9), { type:event, ts:msg.ts, id:Date.now() }]);
+      setTimeout(() => setToasts(p => p.slice(1)), 4500);
+    }
+  }, [collapsed]);
+
+  // Re-layout when collapsed changes
+  useEffect(() => {
+    if (tree) setPos(computeLayout(tree, collapsed));
+  }, [collapsed, tree]);
+
+  // SSE
+  useEffect(() => {
+    let es, retry;
+    function connect() {
+      es = new EventSource("/api/stream");
+      es.onopen    = () => setConn(true);
+      es.onerror   = () => { setConn(false); es.close(); retry = setTimeout(connect, 2000); };
+      es.onmessage = e => { try { applyUpdate(JSON.parse(e.data)); } catch(_){} };
+    }
+    connect();
+    return () => { es?.close(); clearTimeout(retry); };
+  }, [applyUpdate]);
+
+  useEffect(() => { if (tree) setPos(computeLayout(tree, collapsed)); }, [W, H]);
+
+  // Detail node from right-click select
+  useEffect(() => {
+    if (!tree || !selected) { setDetail(null); return; }
+    setDetail(flatNodes(tree).find(n => n.id === selected) || null);
+  }, [selected, tree]);
+
+  // Pan/zoom
+  const onWheel     = useCallback(e => { e.preventDefault(); setZoom(z => Math.min(5, Math.max(0.15, z*(e.deltaY<0?1.1:0.91)))); }, []);
+  const onMouseDown = useCallback(e => { if(e.button!==0)return; drag.current=true; ds.current={x:e.clientX-pan.x, y:e.clientY-pan.y}; }, [pan]);
+  const onMouseMove = useCallback(e => { if(!drag.current)return; setPan({x:e.clientX-ds.current.x, y:e.clientY-ds.current.y}); }, []);
+  const onMouseUp   = useCallback(() => { drag.current=false; }, []);
+
+  const nodes = useMemo(() => tree ? visibleNodes(tree, collapsed) : [], [tree, collapsed]);
+  const edges = useMemo(() => tree ? visibleEdges(tree, pos, collapsed) : [], [tree, pos, collapsed]);
+  const allNodes = useMemo(() => tree ? flatNodes(tree) : [], [tree]);
+
+  const allX = Object.values(pos).map(p => p.x);
+  const allY = Object.values(pos).map(p => p.y);
+  const maxX = allX.length ? Math.max(...allX) + 120 : W;
+  const maxY = allY.length ? Math.max(...allY) + 100 : H-40;
+  const offsetX = pan.x + (W - maxX*zoom) / 2;
+  const offsetY = pan.y + 20;
+
+  return (
+    <div style={{ width:"100vw", height:"100vh", position:"relative", overflow:"hidden", background:"#0b0e14" }}>
+
+      {/* Dot grid */}
+      <svg style={{ position:"absolute", inset:0, width:"100%", height:"100%", pointerEvents:"none", opacity:0.5 }}>
+        <defs>
+          <pattern id="dots" width="30" height="30" patternUnits="userSpaceOnUse">
+            <circle cx="1" cy="1" r="0.7" fill="#ffffff08"/>
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#dots)"/>
+      </svg>
+
+      {/* Scan line */}
+      <div style={{ position:"absolute", left:0, right:0, height:1, background:"linear-gradient(transparent,#00FFD10a,transparent)", animation:"scanline 14s linear infinite", pointerEvents:"none", zIndex:1 }}/>
+
+      {/* Graph canvas */}
+      <div style={{ position:"absolute", top:40, left:0, right:0, bottom:0 }}>
+        <svg width="100%" height="100%"
+          onWheel={onWheel} onMouseDown={onMouseDown}
+          onMouseMove={onMouseMove} onMouseUp={onMouseUp} onMouseLeave={onMouseUp}
+          onClick={() => setSelected(null)}
+          style={{ display:"block", cursor: drag.current ? "grabbing" : "grab" }}
+        >
+          <g transform={`translate(${offsetX},${offsetY}) scale(${zoom})`}>
+            {/* Edges */}
+            <g>
+              {edges.map(e => (
+                <Edge key={e.id} {...e} isNew={newIds.has(e.id?.split("→")[1])}/>
+              ))}
+            </g>
+            {/* Nodes */}
+            <g>
+              {nodes.map(n => {
+                const p = pos[n.id];
+                if (!p) return null;
+                return (
+                  <Node
+                    key={n.id} node={n}
+                    tx={p.x} ty={p.y}
+                    isNew={newIds.has(n.id)}
+                    isChanged={changedIds.has(n.id)}
+                    isCollapsed={collapsed.has(n.id)}
+                    selected={selected}
+                    onSelect={setSelected}
+                    onToggle={toggleCollapse}
+                  />
+                );
+              })}
+            </g>
+          </g>
+        </svg>
+      </div>
+
+      <TopBar
+        connected={connected} rootDir={rootDir}
+        nodeCount={allNodes.length} visibleCount={nodes.length}
+        eventCount={evDisp}
+      />
+      <Toasts items={toasts}/>
+      <Legend/>
+      <Detail node={detailNode} onClose={() => setSelected(null)}/>
+
+      {/* Empty state */}
+      {!tree && (
+        <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", flexDirection:"column", gap:16, fontFamily:"'JetBrains Mono',monospace", pointerEvents:"none" }}>
+          <svg width={52} height={52} viewBox="-26 -26 52 52">
+            <FolderOpenIcon color="#00FFD1" size={36}/>
+          </svg>
+          <div style={{ color:"#00FFD1", fontSize:12, letterSpacing:4 }}>CONNECTING…</div>
+          <div style={{ color:"#1e1e1e", fontSize:9, letterSpacing:2 }}>waiting for filesystem data</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>

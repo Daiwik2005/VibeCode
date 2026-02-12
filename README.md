@@ -55,8 +55,6 @@ VibeCode/
 
 # ⚙️ Full Dependency Installation & Setup Instructions
 
-# In main.py we should update the root1 and root2 path
-
 ## 2️⃣ Install Python 
 
 Check version:
@@ -104,12 +102,12 @@ https://ollama.com/download
 
 # ▶️ Running the Project
 
+In main.py we should update the root1 and root2 path
 ```bash
 python main.py
 ```
 
 ---
-
 # 🌐 Accessing Frontend
 
 If backend serves static content:
